@@ -1,0 +1,923 @@
+### Uma updated SHOW (Stroke/Control) Adipokinase Array Data
+
+library(gplots)
+library(ggplot2)
+library(gridExtra)
+library(ggfortify)
+library(cowplot)
+library(devtools)
+source_url("https://raw.githubusercontent.com/obigriffith/biostar-tutorials/master/Heatmaps/heatmap.3.R")
+
+dat <- read.csv("SHOW_Samples.csv",header=T)
+targets <- read.csv("SHOW_samplesheet.csv",header=T,na.strings=c("","x"))
+rownames(targets) <- colnames(dat)
+targets$Case.or.Control <- gsub("Case","Stroke",targets$Case.or.Control)
+
+# look at PCA of the data
+pc <- prcomp(t(dat))
+autoplot(pc,data=targets,colour="Case.or.Control",label=T,shape=F) + theme_classic()
+#autoplot(pc,data=targets,colour="Case.or.Control",label=T)
+#autoplot(pc,data=targets,colour="Gender",label=T)
+
+# HClust plot
+library(dendextend)
+colorCodes <- c(Stroke="red3", Control="royalblue3")
+groupCodes <- c(rep("Stroke",40),rep("Control",20))
+dend <- as.dendrogram(hclust(dist(t(dat))))
+labels_colors(dend) <- colorCodes[groupCodes][order.dendrogram(dend)]
+pdf("hclust.pdf",width=10,height=8)
+plot(dend,hang=-1)
+dev.off()
+
+# heat map
+colpan <- colorpanel(75,"blue","yellow","red")
+for (i in 1:nrow(targets)) {
+if (targets[i,"Case.or.Control"]=="Stroke") {
+targets[i,"Col"] <- "red3"}
+else {
+targets[i,"Col"] <- "royalblue3"}}
+for (i in 1:nrow(targets)) {
+if (targets[i,"Gender"]=="Female") {
+targets[i,"Col2"] <- "purple"}
+else {
+targets[i,"Col2"] <- "goldenrod"}}
+mat <- cbind(targets$Col,targets$Col2)
+heatmap.3(dat,trace="none",density.info="none",col=colpan,scale="row",dendrogram="column",labRow=FALSE,ColSideColors=mat,ColSideColorsSize=3)
+legend("left",legend=c("Stroke","Control","Female","Male"),fill=c("red3","royalblue3","purple","goldenrod"))
+### Sample SM31.655 seems to be an outlier by visual inspection…will discard from further analysis
+### Sample SM31.655 is row 9 of the targets object and column 9 of the dat object
+targets <- targets[c(1:8,10:nrow(targets)),]
+dat <- dat[,c(1:8,10:ncol(dat))]
+
+# subset the data by group/sex
+strokeM <- dat[,c(1:19)]
+strokeF <- dat[,20:39]
+controlM <- dat[,40:49]
+controlF <- dat[,50:59]
+
+# make a function to place a linear model on the full dataset to compare Case v Control
+# we’ll adjust for age and sex of samples in this comparison
+pval <- c()
+for (i in 1:nrow(dat)) {
+targets2 <- targets[which(dat[i,]>=0),]
+datx <- dat[i,which(dat[i,]>=0)]
+lmRes <- lm(as.numeric(datx) ~ factor(targets2$Case.or.Control) + as.numeric(targets2$Age) + factor(targets2$Gender) + factor(targets2$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- pval
+colnames(pvalFull) <- c("pval.case.or.control","padj.case.or.control")
+
+#plot(factor(targets$Case.or.Control),as.numeric(dat[31,]))
+#points(factor(targets$Case.or.Control),as.numeric(dat[31,]),pch=16)
+
+### make plots for GOI for Uma
+goiPlot <- as.data.frame(t(dat[38,]))
+goiPlot$Group <- targets$Case.or.Control
+colnames(goiPlot) <- c("Intensity","Group")
+goiPlot <- goiPlot[which(goiPlot$Intensity>=0),]
+num.case <- length(which(goiPlot$Group=="Stroke"))
+num.control <- length(which(goiPlot$Group=="Control"))
+goiPlot2 <- as.data.frame(c(mean(goiPlot[which(goiPlot$Group=="Control"),1]),mean(goiPlot[which(goiPlot$Group=="Stroke"),1])))
+sem <- as.data.frame(c(sd(goiPlot[which(goiPlot$Group=="Control"),1])/sqrt(num.control),sd(goiPlot[which(goiPlot$Group=="Stroke"),1])/sqrt(num.case)))
+goiPlot2 <- cbind(goiPlot2,sem)
+goiPlot2$Group <- c("Control","Stroke")
+colnames(goiPlot2) <- c("Intensity","SEM","Group")
+goiPlot2$Color <- c("royalblue3","red3")
+goiPlot2$Group <- factor(goiPlot2$Group, levels = goiPlot2$Group)
+p1 <- ggplot(data=goiPlot2,aes(x=Group,y=Intensity,fill=Group)) +  geom_bar(stat="identity", width=0.5,fill=goiPlot2$Color) + geom_errorbar( aes(x=Group, ymin=Intensity-SEM, ymax=Intensity+SEM), width=0.4, colour="goldenrod", alpha=0.9, size=1.3) + labs(title="(D11-D12)(CCL2/MCP-1)") + geom_point(data=goiPlot,aes(x=Group,y=Intensity))+ theme_classic() + theme(legend.position="none")
+
+goiPlot <- as.data.frame(t(dat[39,]))
+goiPlot$Group <- targets$Case.or.Control
+colnames(goiPlot) <- c("Intensity","Group")
+goiPlot <- goiPlot[which(goiPlot$Intensity>=0),]
+num.case <- length(which(goiPlot$Group=="Stroke"))
+num.control <- length(which(goiPlot$Group=="Control"))
+goiPlot2 <- as.data.frame(c(mean(goiPlot[which(goiPlot$Group=="Control"),1]),mean(goiPlot[which(goiPlot$Group=="Stroke"),1])))
+sem <- as.data.frame(c(sd(goiPlot[which(goiPlot$Group=="Control"),1])/sqrt(num.control),sd(goiPlot[which(goiPlot$Group=="Stroke"),1])/sqrt(num.case)))
+goiPlot2 <- cbind(goiPlot2,sem)
+goiPlot2$Group <- c("Control","Stroke")
+colnames(goiPlot2) <- c("Intensity","SEM","Group")
+goiPlot2$Color <- c("royalblue3","red3")
+goiPlot2$Group <- factor(goiPlot2$Group, levels = goiPlot2$Group)
+p2 <- ggplot(data=goiPlot2,aes(x=Group,y=Intensity,fill=Group)) +  geom_bar(stat="identity", width=0.5,fill=goiPlot2$Color) + geom_errorbar( aes(x=Group, ymin=Intensity-SEM, ymax=Intensity+SEM), width=0.4, colour="goldenrod", alpha=0.9, size=1.3) + labs(title="(D13-D14)(M-CSF)") + geom_point(data=goiPlot,aes(x=Group,y=Intensity))+ theme_classic() + theme(legend.position="none")
+
+goiPlot <- as.data.frame(t(dat[15,]))
+goiPlot$Group <- targets$Case.or.Control
+colnames(goiPlot) <- c("Intensity","Group")
+goiPlot <- goiPlot[which(goiPlot$Intensity>=0),]
+num.case <- length(which(goiPlot$Group=="Stroke"))
+num.control <- length(which(goiPlot$Group=="Control"))
+goiPlot2 <- as.data.frame(c(mean(goiPlot[which(goiPlot$Group=="Control"),1]),mean(goiPlot[which(goiPlot$Group=="Stroke"),1])))
+sem <- as.data.frame(c(sd(goiPlot[which(goiPlot$Group=="Control"),1])/sqrt(num.control),sd(goiPlot[which(goiPlot$Group=="Stroke"),1])/sqrt(num.case)))
+goiPlot2 <- cbind(goiPlot2,sem)
+goiPlot2$Group <- c("Control","Stroke")
+colnames(goiPlot2) <- c("Intensity","SEM","Group")
+goiPlot2$Color <- c("royalblue3","red3")
+goiPlot2$Group <- factor(goiPlot2$Group, levels = goiPlot2$Group)
+p3 <- ggplot(data=goiPlot2,aes(x=Group,y=Intensity,fill=Group)) +  geom_bar(stat="identity", width=0.5,fill=goiPlot2$Color) + geom_errorbar( aes(x=Group, ymin=Intensity-SEM, ymax=Intensity+SEM), width=0.4, colour="goldenrod", alpha=0.9, size=1.3) + labs(title="(B13-B14)(Endocan)") + geom_point(data=goiPlot,aes(x=Group,y=Intensity))+ theme_classic() + theme(legend.position="none")
+
+goiPlot <- as.data.frame(t(dat[51,]))
+goiPlot$Group <- targets$Case.or.Control
+colnames(goiPlot) <- c("Intensity","Group")
+goiPlot <- goiPlot[which(goiPlot$Intensity>=0),]
+num.case <- length(which(goiPlot$Group=="Stroke"))
+num.control <- length(which(goiPlot$Group=="Control"))
+goiPlot2 <- as.data.frame(c(mean(goiPlot[which(goiPlot$Group=="Control"),1]),mean(goiPlot[which(goiPlot$Group=="Stroke"),1])))
+sem <- as.data.frame(c(sd(goiPlot[which(goiPlot$Group=="Control"),1])/sqrt(num.control),sd(goiPlot[which(goiPlot$Group=="Stroke"),1])/sqrt(num.case)))
+goiPlot2 <- cbind(goiPlot2,sem)
+goiPlot2$Group <- c("Control","Stroke")
+colnames(goiPlot2) <- c("Intensity","SEM","Group")
+goiPlot2$Color <- c("royalblue3","red3")
+goiPlot2$Group <- factor(goiPlot2$Group, levels = goiPlot2$Group)
+p4 <- ggplot(data=goiPlot2,aes(x=Group,y=Intensity,fill=Group)) +  geom_bar(stat="identity", width=0.5,fill=goiPlot2$Color) + geom_errorbar( aes(x=Group, ymin=Intensity-SEM, ymax=Intensity+SEM), width=0.4, colour="goldenrod", alpha=0.9, size=1.3) + labs(title="(E13-E14)(Resistin)") + geom_point(data=goiPlot,aes(x=Group,y=Intensity))+ theme_classic() + theme(legend.position="none")
+
+goiPlot <- as.data.frame(t(dat[13,]))
+goiPlot$Group <- targets$Case.or.Control
+colnames(goiPlot) <- c("Intensity","Group")
+goiPlot <- goiPlot[which(goiPlot$Intensity>=0),]
+num.case <- length(which(goiPlot$Group=="Stroke"))
+num.control <- length(which(goiPlot$Group=="Control"))
+goiPlot2 <- as.data.frame(c(mean(goiPlot[which(goiPlot$Group=="Control"),1]),mean(goiPlot[which(goiPlot$Group=="Stroke"),1])))
+sem <- as.data.frame(c(sd(goiPlot[which(goiPlot$Group=="Control"),1])/sqrt(num.control),sd(goiPlot[which(goiPlot$Group=="Stroke"),1])/sqrt(num.case)))
+goiPlot2 <- cbind(goiPlot2,sem)
+goiPlot2$Group <- c("Control","Stroke")
+colnames(goiPlot2) <- c("Intensity","SEM","Group")
+goiPlot2$Color <- c("royalblue3","red3")
+goiPlot2$Group <- factor(goiPlot2$Group, levels = goiPlot2$Group)
+p5 <- ggplot(data=goiPlot2,aes(x=Group,y=Intensity,fill=Group)) +  geom_bar(stat="identity", width=0.5,fill=goiPlot2$Color) + geom_errorbar( aes(x=Group, ymin=Intensity-SEM, ymax=Intensity+SEM), width=0.4, colour="goldenrod", alpha=0.9, size=1.3) + labs(title="(B9-B10)(C-Reactive Protein/CRP)") + geom_point(data=goiPlot,aes(x=Group,y=Intensity))+ theme_classic() + theme(legend.position="none")
+pdf("ProteinsOfInterest.pdf",width=11)
+plot_grid(p1,p2,p3,p4,p5)
+dev.off()
+
+rm(pval)
+
+
+# make a function to place a linear model on the female dataset to compare Case v Control
+# we’ll adjust for age of samples in this comparison
+datF <- cbind(strokeF,controlF)
+targetsF <- targets[which(targets$Gender=="Female"),]
+pval <- c()
+for (i in 1:nrow(datF)) {
+lmRes <- lm(as.numeric(datF[i,]) ~ factor(targetsF$Case.or.Control) + as.numeric(targetsF$Age) + factor(targetsF$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:2]),"pval.Females.case.or.control","padj.Female.case.or.control")
+
+rm(pval)
+
+
+
+# make a function to place a linear model on the male dataset to compare Case v Control
+# we’ll adjust for age of samples in this comparison
+datM <- cbind(strokeM,controlM)
+targetsM <- targets[which(targets$Gender=="Male"),]
+pval <- c()
+for (i in 1:nrow(datM)) {
+lmRes <- lm(as.numeric(datM[i,]) ~ factor(targetsM$Case.or.Control) + as.numeric(targetsM$Age) + factor(targetsM$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:4]), "pval.Males.case.or.control","padj.Male.case.or.control")
+
+rm(pval)
+
+
+# make a function to place a linear model to compare BMI
+# we’ll adjust for age of samples in this comparison
+pval <- c()
+targets2 <- read.csv("SHOW_samplesheet.csv",header=T)
+targets2 <- targets2[c(1:8,10:nrow(targets2)),]
+rownames(targets2) <- colnames(dat)
+for (i in 1:nrow(dat)) {
+lmRes <- lm(as.numeric(dat[i,]) ~ as.numeric(targets2$ant_bmi) + as.numeric(targets2$Age) + factor(targets2$Gender) + factor(targets2$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+#cor(as.numeric(targets$ant_bmi),as.numeric(dat[35,]),use="complete.obs")
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:6]), "pval.BMI","padj.BMI")
+
+rm(pval)
+
+
+# make a function to place a linear model of female samples to compare BMI
+# we’ll adjust for age of samples in this comparison
+datF <- cbind(strokeF,controlF)
+targetsF <- targets2[which(targets2$Gender=="Female"),]
+pval <- c()
+for (i in 1:nrow(datF)) {
+lmRes <- lm(as.numeric(datF[i,]) ~ as.numeric(targetsF$ant_bmi) + as.numeric(targetsF$Age) + factor(targetsF$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:8]), "pval.Female.BMI","padj.Female.BMI")
+
+rm(pval)
+
+# make a function to place a linear model of male samples to compare BMI
+# we’ll adjust for age of samples in this comparison
+datM <- cbind(strokeM,controlM)
+targetsM <- targets2[which(targets2$Gender=="Male"),]
+pval <- c()
+for (i in 1:nrow(datM)) {
+lmRes <- lm(as.numeric(datM[i,]) ~ as.numeric(targetsM$ant_bmi) + as.numeric(targetsM$Age) + factor(targetsM$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:10]), "pval.Male.BMI","padj.Male.BMI")
+
+rm(pval)
+
+
+# make a function to place a linear model to compare diabetes
+# we’ll adjust for age of samples in this comparison
+pval <- c()
+dat2 <- dat[,which(targets$diab!="Yes" | targets$diab!="No")]
+targets2 <- targets[which(targets$diab!="Yes" | targets$diab!="No"),]
+for (i in 1:nrow(dat)) {
+lmRes <- lm(as.numeric(dat2[i,]) ~ factor(targets2$diab) + as.numeric(targets2$Age) + factor(targets2$Gender) + factor(targets2$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+#cor(as.numeric(targets$ant_bmi),as.numeric(dat[35,]),use="complete.obs")
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:12]), "pval.Diabetes","padj.Diabetes")
+
+rm(pval)
+
+
+# make a function to place a linear model to compare diabetes for male samples
+# we’ll adjust for age of samples in this comparison
+pval <- c()
+datM <- cbind(strokeM,controlM)
+targetsM <- targets[which(targets$Gender=="Male"),]
+datM2 <- datM[,which(targetsM$diab!="Yes" | targetsM$diab!="No")]
+targetsM2 <- targetsM[which(targetsM$diab!="Yes" | targetsM$diab!="No"),]
+for (i in 1:nrow(dat)) {
+lmRes <- lm(as.numeric(datM2[i,]) ~ factor(targetsM2$diab) + as.numeric(targetsM2$Age) + factor(targetsM2$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+#cor(as.numeric(targets$ant_bmi),as.numeric(dat[35,]),use="complete.obs")
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:14]), "pval.Male.Diabetes","padj.Male.Diabetes")
+
+rm(pval)
+
+
+# make a function to place a linear model to compare diabetes for female samples
+# we’ll adjust for age of samples in this comparison
+pval <- c()
+datM <- cbind(strokeF,controlF)
+targetsF <- targets[which(targets$Gender=="Female"),]
+datF2 <- datF[,which(targetsF$diab!="Yes" | targetsF$diab!="No")]
+targetsF2 <- targetsF[which(targetsF$diab!="Yes" | targetsF$diab!="No"),]
+for (i in 1:nrow(dat)) {
+lmRes <- lm(as.numeric(datF2[i,]) ~ factor(targetsF2$diab) + as.numeric(targetsF2$Age) + factor(targetsF2$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+#cor(as.numeric(targets$ant_bmi),as.numeric(dat[35,]),use="complete.obs")
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:16]), "pval.Female.Diabetes","padj.Female.Diabetes")
+
+rm(pval)
+
+
+# make a function to place a linear model to compare heart disease
+# we’ll adjust for age of samples in this comparison
+pval <- c()
+dat2 <- dat[,which(targets$heart_disease!="Yes" | targets$heart_disease!="No")]
+targets2 <- targets[which(targets$heart_disease!="Yes" | targets$heart_disease!="No"),]
+for (i in 1:nrow(dat)) {
+lmRes <- lm(as.numeric(dat2[i,]) ~ factor(targets2$heart_disease) + as.numeric(targets2$Age) + factor(targets2$Gender) + factor(targets2$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+#cor(as.numeric(targets$ant_bmi),as.numeric(dat[35,]),use="complete.obs")
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:18]), "pval.HeartDis","padj.HeartDis")
+
+rm(pval)
+
+
+# make a function to place a linear model to compare heart disease for male samples
+# we’ll adjust for age of samples in this comparison
+pval <- c()
+datM <- cbind(strokeM,controlM)
+targetsM <- targets[which(targets$Gender=="Male"),]
+datM2 <- datM[,which(targetsM$heart_disease!="Yes" | targetsM$heart_disease!="No")]
+targetsM2 <- targetsM[which(targetsM$heart_disease!="Yes" | targetsM$heart_disease!="No"),]
+for (i in 1:nrow(dat)) {
+lmRes <- lm(as.numeric(datM2[i,]) ~ factor(targetsM2$heart_disease) + as.numeric(targetsM2$Age) + factor(targetsM2$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+#cor(as.numeric(targets$ant_bmi),as.numeric(dat[35,]),use="complete.obs")
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:20]), "pval.Male.HeartDis","padj.Male.HeartDis")
+
+rm(pval)
+
+
+# make a function to place a linear model to compare heart disease for female samples
+# we’ll adjust for age of samples in this comparison
+pval <- c()
+datM <- cbind(strokeF,controlF)
+targetsF <- targets[which(targets$Gender=="Female"),]
+datF2 <- datF[,which(targetsF$heart_disease!="Yes" | targetsF$heart_disease!="No")]
+targetsF2 <- targetsF[which(targetsF$heart_disease!="Yes" | targetsF$heart_disease!="No"),]
+for (i in 1:nrow(dat)) {
+lmRes <- lm(as.numeric(datF2[i,]) ~ factor(targetsF2$heart_disease) + as.numeric(targetsF2$Age) + factor(targetsF2$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+#cor(as.numeric(targets$ant_bmi),as.numeric(dat[35,]),use="complete.obs")
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:22]), "pval.Female.HeartDis","padj.Female.HeartDis")
+
+rm(pval)
+
+
+# make a function to place a linear model to compare lab_gh
+# we’ll adjust for age of samples in this comparison
+pval <- c()
+targets2 <- read.csv("SHOW_samplesheet.csv",header=T)
+targets2 <- targets2[c(1:8,10:nrow(targets2)),]
+rownames(targets2) <- colnames(dat)
+for (i in 1:nrow(dat)) {
+lmRes <- lm(as.numeric(dat[i,]) ~ as.numeric(targets2$lab_gh) + as.numeric(targets2$Age) + factor(targets2$Gender) + factor(targets2$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+#cor(as.numeric(targets$ant_bmi),as.numeric(dat[35,]),use="complete.obs")
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:24]), "pval.lab_gh","padj.lab_gh")
+
+rm(pval)
+
+
+# make a function to place a linear model of female samples to compare lab_gh
+# we’ll adjust for age of samples in this comparison
+datF <- cbind(strokeF,controlF)
+targetsF <- targets2[which(targets2$Gender=="Female"),]
+pval <- c()
+for (i in 1:nrow(datF)) {
+lmRes <- lm(as.numeric(datF[i,]) ~ as.numeric(targetsF$lab_gh) + as.numeric(targetsF$Age) + factor(targetsF$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:26]), "pval.Female.lab_gh","padj.Female.lab_gh")
+
+rm(pval)
+
+# make a function to place a linear model of male samples to compare lab_gh
+# we’ll adjust for age of samples in this comparison
+datM <- cbind(strokeM,controlM)
+targetsM <- targets2[which(targets2$Gender=="Male"),]
+pval <- c()
+for (i in 1:nrow(datM)) {
+lmRes <- lm(as.numeric(datM[i,]) ~ as.numeric(targetsM$lab_gh) + as.numeric(targetsM$Age) + factor(targetsM$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:28]), "pval.Male.lab_gh","padj.Male.lab_gh")
+
+rm(pval)
+
+
+# make a function to place a linear model to compare lab_tchol
+# we’ll adjust for age of samples in this comparison
+pval <- c()
+targets2 <- read.csv("SHOW_samplesheet.csv",header=T)
+targets2 <- targets2[c(1:8,10:nrow(targets2)),]
+rownames(targets2) <- colnames(dat)
+for (i in 1:nrow(dat)) {
+lmRes <- lm(as.numeric(dat[i,]) ~ as.numeric(targets2$lab_tchol) + as.numeric(targets2$Age) + factor(targets2$Gender) + factor(targets2$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+#cor(as.numeric(targets$ant_bmi),as.numeric(dat[35,]),use="complete.obs")
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:30]), "pval.lab_tchol","padj.lab_tchol")
+
+rm(pval)
+
+
+# make a function to place a linear model of female samples to compare lab_tchol
+# we’ll adjust for age of samples in this comparison
+datF <- cbind(strokeF,controlF)
+targetsF <- targets2[which(targets2$Gender=="Female"),]
+pval <- c()
+for (i in 1:nrow(datF)) {
+lmRes <- lm(as.numeric(datF[i,]) ~ as.numeric(targetsF$lab_tchol) + as.numeric(targetsF$Age) + factor(targetsF$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:32]), "pval.Female.lab_tchol","padj.Female.lab_tchol")
+
+rm(pval)
+
+# make a function to place a linear model of male samples to compare lab_tchol
+# we’ll adjust for age of samples in this comparison
+datM <- cbind(strokeM,controlM)
+targetsM <- targets2[which(targets2$Gender=="Male"),]
+pval <- c()
+for (i in 1:nrow(datM)) {
+lmRes <- lm(as.numeric(datM[i,]) ~ as.numeric(targetsM$lab_tchol) + as.numeric(targetsM$Age) + factor(targetsM$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:34]), "pval.Male.lab_tchol","padj.Male.lab_tchol")
+
+rm(pval)
+
+
+# make a function to place a linear model to compare lab_wbc
+# we’ll adjust for age of samples in this comparison
+pval <- c()
+targets2 <- read.csv("SHOW_samplesheet.csv",header=T)
+targets2 <- targets2[c(1:8,10:nrow(targets2)),]
+rownames(targets2) <- colnames(dat)
+for (i in 1:nrow(dat)) {
+lmRes <- lm(as.numeric(dat[i,]) ~ as.numeric(targets2$lab_wbc) + as.numeric(targets2$Age) + factor(targets2$Gender) + factor(targets2$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+#cor(as.numeric(targets$ant_bmi),as.numeric(dat[35,]),use="complete.obs")
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:36]), "pval.wbc","padj.wbc")
+
+rm(pval)
+
+
+# make a function to place a linear model of female samples to compare lab_wbc
+# we’ll adjust for age of samples in this comparison
+datF <- cbind(strokeF,controlF)
+targetsF <- targets2[which(targets2$Gender=="Female"),]
+pval <- c()
+for (i in 1:nrow(datF)) {
+lmRes <- lm(as.numeric(datF[i,]) ~ as.numeric(targetsF$lab_wbc) + as.numeric(targetsF$Age) + factor(targetsF$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:38]), "pval.Female.wbc","padj.Female.wbc")
+
+rm(pval)
+
+# make a function to place a linear model of male samples to compare lab_wbc
+# we’ll adjust for age of samples in this comparison
+datM <- cbind(strokeM,controlM)
+targetsM <- targets2[which(targets2$Gender=="Male"),]
+pval <- c()
+for (i in 1:nrow(datM)) {
+lmRes <- lm(as.numeric(datM[i,]) ~ as.numeric(targetsM$lab_wbc) + as.numeric(targetsM$Age) + factor(targetsM$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:40]), "pval.Male.wbc","padj.Male.wbc")
+
+rm(pval)
+
+
+# make a function to place a linear model to compare lab160
+# we’ll adjust for age of samples in this comparison
+pval <- c()
+targets2 <- read.csv("SHOW_samplesheet.csv",header=T)
+targets2 <- targets2[c(1:8,10:nrow(targets2)),]
+rownames(targets2) <- colnames(dat)
+for (i in 1:nrow(dat)) {
+lmRes <- lm(as.numeric(dat[i,]) ~ as.numeric(targets2$lab160) + as.numeric(targets2$Age) + factor(targets2$Gender) + factor(targets2$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+#cor(as.numeric(targets$ant_bmi),as.numeric(dat[35,]),use="complete.obs")
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:42]), "pval.lab160","padj.lab160")
+
+rm(pval)
+
+
+# make a function to place a linear model of female samples to compare lab160
+# we’ll adjust for age of samples in this comparison
+datF <- cbind(strokeF,controlF)
+targetsF <- targets2[which(targets2$Gender=="Female"),]
+pval <- c()
+for (i in 1:nrow(datF)) {
+lmRes <- lm(as.numeric(datF[i,]) ~ as.numeric(targetsF$lab160) + as.numeric(targetsF$Age) + factor(targetsF$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:44]), "pval.Female.lab160","padj.Female.lab160")
+
+rm(pval)
+
+# make a function to place a linear model of male samples to compare lab160
+# we’ll adjust for age of samples in this comparison
+datM <- cbind(strokeM,controlM)
+targetsM <- targets2[which(targets2$Gender=="Male"),]
+pval <- c()
+for (i in 1:nrow(datM)) {
+lmRes <- lm(as.numeric(datM[i,]) ~ as.numeric(targetsM$lab160) + as.numeric(targetsM$Age) + factor(targetsM$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:46]), "pval.Male.lab160","padj.Male.lab160")
+
+rm(pval)
+
+
+# make a function to place a linear model to compare htn14090
+# we’ll adjust for age of samples in this comparison
+pval <- c()
+dat2 <- dat[,which(targets$htn14090!="Yes" | targets$htn14090!="No")]
+targets2 <- targets[which(targets$htn14090!="Yes" | targets$htn14090!="No"),]
+for (i in 1:nrow(dat)) {
+lmRes <- lm(as.numeric(dat2[i,]) ~ factor(targets2$htn14090) + as.numeric(targets2$Age) + factor(targets2$Gender) + factor(targets2$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+#cor(as.numeric(targets$ant_bmi),as.numeric(dat[35,]),use="complete.obs")
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:48]), "pval.htn14090","padj.htn14090")
+
+rm(pval)
+
+
+# make a function to place a linear model to compare heart disease for male samples
+# we’ll adjust for age of samples in this comparison
+pval <- c()
+datM <- cbind(strokeM,controlM)
+targetsM <- targets[which(targets$Gender=="Male"),]
+datM2 <- datM[,which(targetsM$htn14090!="Yes" | targetsM$htn14090!="No")]
+targetsM2 <- targetsM[which(targetsM$htn14090!="Yes" | targetsM$htn14090!="No"),]
+for (i in 1:nrow(dat)) {
+lmRes <- lm(as.numeric(datM2[i,]) ~ factor(targetsM2$htn14090) + as.numeric(targetsM2$Age) + factor(targetsM2$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+#cor(as.numeric(targets$ant_bmi),as.numeric(dat[35,]),use="complete.obs")
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:50]), "pval.Male.htn14090","padj.Male.htn14090")
+
+rm(pval)
+
+
+# make a function to place a linear model to compare heart disease for female samples
+# we’ll adjust for age of samples in this comparison
+pval <- c()
+datM <- cbind(strokeF,controlF)
+targetsF <- targets[which(targets$Gender=="Female"),]
+datF2 <- datF[,which(targetsF$htn14090!="Yes" | targetsF$htn14090!="No")]
+targetsF2 <- targetsF[which(targetsF$htn14090!="Yes" | targetsF$htn14090!="No"),]
+for (i in 1:nrow(dat)) {
+lmRes <- lm(as.numeric(datF2[i,]) ~ factor(targetsF2$htn14090) + as.numeric(targetsF2$Age) + factor(targetsF2$Race.Ethnicity))
+lmPval <- coef(summary(lmRes))[2,4]
+pval <- append(pval,lmPval)
+}
+pval <- as.data.frame(pval)
+#cor(as.numeric(targets$ant_bmi),as.numeric(dat[35,]),use="complete.obs")
+pval$padj <- p.adjust(pval[,1],method="fdr")
+pvalFull <- cbind(pvalFull,pval)
+colnames(pvalFull) <- c(colnames(pvalFull[,1:52]), "pval.Female.htn14090","padj.Female.htn14090")
+
+rm(pval)
+
+rownames(pvalFull) <- rownames(dat)
+write.table(pvalFull,file="SHOW_Results.csv",quote=F,row.names=T,sep=',')
+
+
+
+
+
+### make a function to make plots of significant proteins…
+### the following code only works for the results from the all Case v all Control data…
+# subset data for just significant proteins (p-value < 0.05)
+sigRows <- which(pvalFull[,1]<0.05)
+goiPlot <- as.data.frame(t(dat[sigRows,]))
+# get metadata for samples
+goiPlot$Group <- targets$Case.or.Control
+# open up a PDF file for plots to be sent to
+pdf("significantProteinsOfInterest.pdf",onefile=TRUE)
+# make a list to keep plots in
+myPlots <- list()
+# subset the significant proteins one by one 
+for (i in 1:(ncol(goiPlot)-1)) {
+datSub <- goiPlot[,c(i,ncol(goiPlot))]
+gene <- colnames(datSub)[1]
+colnames(datSub) <- c("Intensity","Group")
+# remove samples with negative values
+datSub <- datSub[which(datSub$Intensity>=0),]
+# get the total number of case and control samples for SEM calculations
+num.case <- length(which(datSub$Group=="Case"))
+num.control <- length(which(datSub$Group=="Control"))
+# calculate the means and SEM for each group
+goiPlot2 <- as.data.frame(c(mean(datSub[which(datSub$Group=="Control"),1]),mean(datSub[which(datSub$Group=="Case"),1])))
+sem <- as.data.frame(c(sd(datSub[which(datSub$Group=="Control"),1])/sqrt(num.control),sd(datSub[which(datSub$Group=="Case"),1])/sqrt(num.case)))
+goiPlot2 <- cbind(goiPlot2,sem)
+goiPlot2$Group <- c("Control","Case")
+colnames(goiPlot2) <- c("Intensity","SEM","Group")
+# select colors for plots
+goiPlot2$Color <- c("royalblue3","red3")
+goiPlot2$Group <- factor(goiPlot2$Group, levels = goiPlot2$Group)
+# generate the plot
+newPlot <- ggplot(data=goiPlot2,aes(x=Group,y=Intensity,fill=Group)) +  geom_bar(stat="identity", width=0.5,fill=goiPlot2$Color) + geom_errorbar( aes(x=Group, ymin=Intensity-SEM, ymax=Intensity+SEM), width=0.4, colour="goldenrod", alpha=0.9, size=1.3) + labs(title=gene) + geom_point(data=datSub,aes(x=Group,y=Intensity))+ theme_classic() + theme(legend.position="none")
+# print the plot to be sent to the PDF file
+print(newPlot)
+}
+dev.off()
+
+
+### make a function to make plots of significant proteins…
+### the following code only works for the results from the all diabetes data…
+# subset data for just significant proteins (p-value < 0.05)
+sigRows <- which(pvalFull[,1]<0.05)
+goiPlot <- as.data.frame(t(dat[sigRows,]))
+# get metadata for samples
+goiPlot$Group <- targets$diab
+# open up a PDF file for plots to be sent to
+pdf("significantProteinsOfInterest.pdf",onefile=TRUE)
+# make a list to keep plots in
+myPlots <- list()
+# subset the significant proteins one by one 
+for (i in 1:(ncol(goiPlot)-1)) {
+datSub <- goiPlot[,c(i,ncol(goiPlot))]
+gene <- colnames(datSub)[1]
+colnames(datSub) <- c("Intensity","Group")
+# remove samples with negative values
+datSub <- datSub[which(datSub$Intensity>=0),]
+# get the total number of case and control samples for SEM calculations
+num.case <- length(which(datSub$Group=="Yes"))
+num.control <- length(which(datSub$Group=="No"))
+# calculate the means and SEM for each group
+goiPlot2 <- as.data.frame(c(mean(datSub[which(datSub$Group=="No"),1]),mean(datSub[which(datSub$Group=="Yes"),1])))
+sem <- as.data.frame(c(sd(datSub[which(datSub$Group=="No"),1])/sqrt(num.control),sd(datSub[which(datSub$Group=="Yes"),1])/sqrt(num.case)))
+goiPlot2 <- cbind(goiPlot2,sem)
+goiPlot2$Group <- c("No","Yes")
+colnames(goiPlot2) <- c("Intensity","SEM","Diabetes")
+# select colors for plots
+goiPlot2$Color <- c("cadetblue3","indianred3")
+goiPlot2$Diabetes <- factor(goiPlot2$Diabetes, levels = goiPlot2$Diabetes)
+colnames(datSub) <- c("Intensity","Diabetes")
+# generate the plot
+newPlot <- ggplot(data=goiPlot2,aes(x=Diabetes,y=Intensity,fill=Diabetes)) +  geom_bar(stat="identity", width=0.5,fill=goiPlot2$Color) + geom_errorbar( aes(x=Diabetes, ymin=Intensity-SEM, ymax=Intensity+SEM), width=0.4, colour="goldenrod", alpha=0.9, size=1.3) + labs(title=gene) + geom_point(data=datSub,aes(x=Diabetes,y=Intensity))+ theme_classic() + theme(legend.position="none")
+# print the plot to be sent to the PDF file
+print(newPlot)
+}
+dev.off()
+
+
+### make a function to make plots of significant proteins…
+### the following code only works for the results from the all heart disease data…
+# subset data for just significant proteins (p-value < 0.05)
+sigRows <- which(pvalFull[,1]<0.05)
+goiPlot <- as.data.frame(t(dat[sigRows,]))
+# get metadata for samples
+goiPlot$Group <- targets$heart_disease
+# open up a PDF file for plots to be sent to
+pdf("significantProteinsOfInterest.pdf",onefile=TRUE)
+# make a list to keep plots in
+myPlots <- list()
+# subset the significant proteins one by one 
+for (i in 1:(ncol(goiPlot)-1)) {
+datSub <- goiPlot[,c(i,ncol(goiPlot))]
+gene <- colnames(datSub)[1]
+colnames(datSub) <- c("Intensity","Group")
+# remove samples with negative values
+datSub <- datSub[which(datSub$Intensity>=0),]
+# get the total number of case and control samples for SEM calculations
+num.case <- length(which(datSub$Group=="Yes"))
+num.control <- length(which(datSub$Group=="No"))
+# calculate the means and SEM for each group
+goiPlot2 <- as.data.frame(c(mean(datSub[which(datSub$Group=="No"),1]),mean(datSub[which(datSub$Group=="Yes"),1])))
+sem <- as.data.frame(c(sd(datSub[which(datSub$Group=="No"),1])/sqrt(num.control),sd(datSub[which(datSub$Group=="Yes"),1])/sqrt(num.case)))
+goiPlot2 <- cbind(goiPlot2,sem)
+goiPlot2$Group <- c("No","Yes")
+colnames(goiPlot2) <- c("Intensity","SEM","Heart_Disease")
+# select colors for plots
+goiPlot2$Color <- c("dodgerblue3","darkred")
+goiPlot2$Heart_Disease <- factor(goiPlot2$Heart_Disease, levels = goiPlot2$Heart_Disease)
+colnames(datSub) <- c("Intensity","Heart_Disease")
+# generate the plot
+newPlot <- ggplot(data=goiPlot2,aes(x=Heart_Disease,y=Intensity,fill=Heart_Disease)) +  geom_bar(stat="identity", width=0.5,fill=goiPlot2$Color) + geom_errorbar( aes(x=Heart_Disease, ymin=Intensity-SEM, ymax=Intensity+SEM), width=0.4, colour="goldenrod", alpha=0.9, size=1.3) + labs(title=gene) + geom_point(data=datSub,aes(x=Heart_Disease,y=Intensity))+ theme_classic() + theme(legend.position="none")
+# print the plot to be sent to the PDF file
+print(newPlot)
+}
+dev.off()
+
+
+### make a function to make plots of significant proteins…
+### the following code only works for the results from the all htn14090 data…
+# subset data for just significant proteins (p-value < 0.05)
+sigRows <- which(pvalFull[,1]<0.05)
+goiPlot <- as.data.frame(t(dat[sigRows,]))
+# get metadata for samples
+goiPlot$Group <- targets$htn14090
+# open up a PDF file for plots to be sent to
+pdf("significantProteinsOfInterest.pdf",onefile=TRUE)
+# make a list to keep plots in
+myPlots <- list()
+# subset the significant proteins one by one 
+for (i in 1:(ncol(goiPlot)-1)) {
+datSub <- goiPlot[,c(i,ncol(goiPlot))]
+gene <- colnames(datSub)[1]
+colnames(datSub) <- c("Intensity","Group")
+# remove samples with negative values
+datSub <- datSub[which(datSub$Intensity>=0),]
+# get the total number of case and control samples for SEM calculations
+num.case <- length(which(datSub$Group=="Yes"))
+num.control <- length(which(datSub$Group=="No"))
+# calculate the means and SEM for each group
+goiPlot2 <- as.data.frame(c(mean(datSub[which(datSub$Group=="No"),1]),mean(datSub[which(datSub$Group=="Yes"),1])))
+sem <- as.data.frame(c(sd(datSub[which(datSub$Group=="No"),1])/sqrt(num.control),sd(datSub[which(datSub$Group=="Yes"),1])/sqrt(num.case)))
+goiPlot2 <- cbind(goiPlot2,sem)
+goiPlot2$Group <- c("No","Yes")
+colnames(goiPlot2) <- c("Intensity","SEM","htn14090")
+# select colors for plots
+goiPlot2$Color <- c("darkseagreen3","darkorange3")
+goiPlot2$htn14090 <- factor(goiPlot2$htn14090, levels = goiPlot2$htn14090)
+colnames(datSub) <- c("Intensity","htn14090")
+# generate the plot
+newPlot <- ggplot(data=goiPlot2,aes(x=htn14090,y=Intensity,fill=htn14090)) +  geom_bar(stat="identity", width=0.5,fill=goiPlot2$Color) + geom_errorbar( aes(x=htn14090, ymin=Intensity-SEM, ymax=Intensity+SEM), width=0.4, colour="goldenrod", alpha=0.9, size=1.3) + labs(title=gene) + geom_point(data=datSub,aes(x=htn14090,y=Intensity))+ theme_classic() + theme(legend.position="none")
+# print the plot to be sent to the PDF file
+print(newPlot)
+}
+dev.off()
+
+
+### make a function to make plots of significant proteins…
+### the following code only works for the results from the all BMI data…
+# subset data for just significant proteins (p-value < 0.05)
+sigRows <- which(pvalFull[,1]<0.05)
+goiPlot <- as.data.frame(t(dat[sigRows,]))
+# get metadata for samples
+goiPlot$Group <- targets$ant_bmi
+# open up a PDF file for plots to be sent to
+pdf("significantProteinsOfInterest.pdf",onefile=TRUE)
+# make a list to keep plots in
+myPlots <- list()
+# subset the significant proteins one by one 
+for (i in 1:(ncol(goiPlot)-1)) {
+datSub <- goiPlot[,c(i,ncol(goiPlot))]
+gene <- colnames(datSub)[1]
+colnames(datSub) <- c("Intensity","BMI")
+# remove samples with negative values
+datSub <- datSub[which(datSub$Intensity>=0),]
+# linear model to get abline for plot
+res <- lm(datSub[,1] ~ datSub[,2])
+# generate the plot
+newPlot <- ggplot(data=datSub,aes(x=BMI,y=Intensity)) + geom_point() + theme_classic() + theme(legend.position="none") + geom_abline(slope=coef(res)[2],intercept=coef(res)[1],colour="red") + labs(title=gene) 
+# print the plot to be sent to the PDF file
+print(newPlot)
+}
+dev.off()
+
+
+### make a function to make plots of significant proteins…
+### the following code only works for the results from the all wbc data…
+# subset data for just significant proteins (p-value < 0.05)
+sigRows <- which(pvalFull[,1]<0.05)
+goiPlot <- as.data.frame(t(dat[sigRows,]))
+# get metadata for samples
+goiPlot$Group <- targets$lab_wbc
+# open up a PDF file for plots to be sent to
+pdf("significantProteinsOfInterest.pdf",onefile=TRUE)
+# make a list to keep plots in
+myPlots <- list()
+# subset the significant proteins one by one 
+for (i in 1:(ncol(goiPlot)-1)) {
+datSub <- goiPlot[,c(i,ncol(goiPlot))]
+gene <- colnames(datSub)[1]
+colnames(datSub) <- c("Intensity","lab_wbc")
+# remove samples with negative values
+datSub <- datSub[which(datSub$Intensity>=0),]
+# linear model to get abline for plot
+res <- lm(datSub[,1] ~ datSub[,2])
+# generate the plot
+newPlot <- ggplot(data=datSub,aes(x=lab_wbc,y=Intensity)) + geom_point() + theme_classic() + theme(legend.position="none") + geom_abline(slope=coef(res)[2],intercept=coef(res)[1],colour="red") + labs(title=gene) 
+# print the plot to be sent to the PDF file
+print(newPlot)
+}
+dev.off()
+
+
+### make a function to make plots of significant proteins…
+### the following code only works for the results from the all lab_gh data…
+# subset data for just significant proteins (p-value < 0.05)
+sigRows <- which(pvalFull[,1]<0.05)
+goiPlot <- as.data.frame(t(dat[sigRows,]))
+# get metadata for samples
+goiPlot$Group <- targets$lab_gh
+# open up a PDF file for plots to be sent to
+pdf("significantProteinsOfInterest.pdf",onefile=TRUE)
+# make a list to keep plots in
+myPlots <- list()
+# subset the significant proteins one by one 
+for (i in 1:(ncol(goiPlot)-1)) {
+datSub <- goiPlot[,c(i,ncol(goiPlot))]
+gene <- colnames(datSub)[1]
+colnames(datSub) <- c("Intensity","lab_gh")
+# remove samples with negative values
+datSub <- datSub[which(datSub$Intensity>=0),]
+# linear model to get abline for plot
+res <- lm(datSub[,1] ~ datSub[,2])
+# generate the plot
+newPlot <- ggplot(data=datSub,aes(x=lab_gh,y=Intensity)) + geom_point() + theme_classic() + theme(legend.position="none") + geom_abline(slope=coef(res)[2],intercept=coef(res)[1],colour="red") + labs(title=gene) 
+# print the plot to be sent to the PDF file
+print(newPlot)
+}
+dev.off()
+
+
+### make a function to make plots of significant proteins…
+### the following code only works for the results from the all lab_tchol data…
+# subset data for just significant proteins (p-value < 0.05)
+sigRows <- which(pvalFull[,1]<0.05)
+goiPlot <- as.data.frame(t(dat[sigRows,]))
+# get metadata for samples
+goiPlot$Group <- targets$lab_tchol
+# open up a PDF file for plots to be sent to
+pdf("significantProteinsOfInterest.pdf",onefile=TRUE)
+# make a list to keep plots in
+myPlots <- list()
+# subset the significant proteins one by one 
+for (i in 1:(ncol(goiPlot)-1)) {
+datSub <- goiPlot[,c(i,ncol(goiPlot))]
+gene <- colnames(datSub)[1]
+colnames(datSub) <- c("Intensity","lab_tchol")
+# remove samples with negative values
+datSub <- datSub[which(datSub$Intensity>=0),]
+# linear model to get abline for plot
+res <- lm(datSub[,1] ~ datSub[,2])
+# generate the plot
+newPlot <- ggplot(data=datSub,aes(x=lab_tchol,y=Intensity)) + geom_point() + theme_classic() + theme(legend.position="none") + geom_abline(slope=coef(res)[2],intercept=coef(res)[1],colour="red") + labs(title=gene) 
+# print the plot to be sent to the PDF file
+print(newPlot)
+}
+dev.off()
