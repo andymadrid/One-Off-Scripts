@@ -70,7 +70,7 @@ function (bs, testCovariate = NULL, bySample = FALSE, type = "M",
             p1 <- ggplot(meth.levelsm, aes(Cov + 0.1, colour = group, 
                 group = group)) + geom_line(adjust = adj, alpha = 0.6, 
                 stat = "density", size = 1.3) + scale_x_continuous(trans = "log2") + 
-                xlab("Coverage") + theme_bw() + theme(text=element_text(size=20)) + scale_color_manual(values=colPal)
+                xlab("Coverage") + theme_bw() + theme(text=element_text(size=20)) + xlim(0,80) + scale_color_manual(values=colPal)
         }
         p1 <- p1 + labs(colour = "Group")
     }
