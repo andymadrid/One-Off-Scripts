@@ -86,36 +86,36 @@ function (bs, testCovariate = NULL, bySample = FALSE, type = "M",
                 if (ncol(bs) <= 12) {
                   p1 <- ggplot(meth.levelsm, aes(M, colour = group, 
                     group = sample, weight = wt, linetype = sample)) + 
-                    labs(color = "Group", linetype = "Sample") + theme(text=element_text(size=20)) + scale_color_manual(values=colPal)
+                    labs(color = "Group", linetype = "Sample") + theme(text=element_text(size=20)) + xlim(0,80) + scale_color_manual(values=colPal)
                 }
                 else {
                   p1 <- ggplot(meth.levelsm, aes(M, colour = group, 
-                    group = sample, weight = wt)) + labs(color = "Group") + theme(text=element_text(size=20)) + scale_color_manual(values=colPal)
+                    group = sample, weight = wt)) + labs(color = "Group") + theme(text=element_text(size=20)) + xlim(0,80) + scale_color_manual(values=colPal)
                 }
             }
             p1 <- p1 + geom_line(adjust = adj, alpha = 0.6, stat = "density", 
                 size = 1.3) + xlab("Methylation Proportion") + 
-                theme_bw() + theme(text=element_text(size=20)) + scale_color_manual(values=colPal)
+                theme_bw() + theme(text=element_text(size=20)) + xlim(0,80) + scale_color_manual(values=colPal)
         }
         else {
             if (identical(meth.levelsm$group, meth.levelsm$sample)) {
                 p1 <- ggplot(meth.levelsm, aes(Cov + 0.1, colour = group, 
-                  group = sample)) + labs(color = "Sample") + theme(text=element_text(size=20)) + xlim(0,100) + scale_color_manual(values=colPal)
+                  group = sample)) + labs(color = "Sample") + theme(text=element_text(size=20)) + xlim(0,80) + scale_color_manual(values=colPal)
             }
             else {
                 if (ncol(bs) <= 12) {
                   p1 <- ggplot(meth.levelsm, aes(Cov + 0.1, colour = group, 
                     group = sample, linetype = sample)) + labs(color = "Group", 
-                    linetype = "Sample") + theme(text=element_text(size=20)) + xlim(0,100) + scale_color_manual(values=colPal)
+                    linetype = "Sample") + theme(text=element_text(size=20)) + xlim(0,80) + scale_color_manual(values=colPal)
                 }
                 else {
                   p1 <- ggplot(meth.levelsm, aes(Cov + 0.1, colour = group, 
-                    group = sample)) + labs(color = "Group") + theme(text=element_text(size=20)) + xlim(0,100) + scale_color_manual(values=colPal)
+                    group = sample)) + labs(color = "Group") + theme(text=element_text(size=20)) + xlim(0,80) + scale_color_manual(values=colPal)
                 }
             }
             p1 <- p1 + geom_line(adjust = adj, alpha = 0.6, stat = "density", 
                 size = 1.3) + scale_x_continuous(trans = "log2") + 
-                xlab("Coverage") + theme_bw() + theme(text=element_text(size=20)) + xlim(0,100) + scale_color_manual(values=colPal)
+                xlab("Coverage") + theme_bw() + theme(text=element_text(size=20)) + xlim(0,80) + scale_color_manual(values=colPal)
         }
     }
     return(p1)
