@@ -45,11 +45,10 @@ findDMRs <- function(dml, pCutoff = 1e-3, delta = 0, pt.sig = 0.5, minCG = 3, ma
       chr = region$chr[1],
       start = min(region$pos),
       end = max(region$pos),
+      length = max(region$pos) - min(region$pos),
       nCG = nrow(region),
-      nSig = sum(region$isSig),
       pct.sig = mean(region$isSig),
-      mean.diff = mean(region$diff),
-      mean.abs.diff = mean(abs(region$diff)),
+      diff.Methy = mean(region$diff),
       min.pval = min(region$pval)
     )
   }))
