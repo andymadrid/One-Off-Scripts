@@ -1,5 +1,5 @@
 # A function to find DMRs that is better than the callDMR() function from DSS
-findDMRs <- function(dml, pCutoff = 1e-3, delta = 0 minCG = 3, pt.sig = 0.5, maxGap = 150) {
+findDMRs <- function(dml, pCutoff = 1e-3, delta = 0, minCG = 3, pt.sig = 0.5, maxGap = 150) {
 
   # Identify which CpGs are significant
   dml <- dml %>%
