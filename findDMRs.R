@@ -7,7 +7,7 @@ findDMRs <- function(dml, pCutoff = 1e-3, delta = 0, pt.sig = 0.5, minCG = 3, ma
     arrange(chr, pos)
 
   # Filter to CpGs that pass either filter to be considered for DMRs
-  candidates <- dml %>% filter(pval < pCutoff)
+  candidates <- dml %>% filter((pval < pCutoff) & (abs(diff) >= delta))
 
   if (nrow(candidates) == 0) return(data.frame())
 
