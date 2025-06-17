@@ -5,7 +5,7 @@ run_doubletfinder <- function(sample, preprocess = FALSE, resol = 0.1) {
 
   # Preprocess (normalize, find variable genes, scale) if needed
   if (preprocess == TRUE) {
-  sample <- NormalizeData(seu_sample_subset)
+  sample <- NormalizeData(sample)
   sample <- FindVariableFeatures(sample)
   sample <- ScaleData(sample)
   sample <- RunPCA(sample)
