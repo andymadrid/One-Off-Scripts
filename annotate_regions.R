@@ -1,32 +1,3 @@
-#!/usr/bin/env Rscript
-# =============================================================================
-# annotate_regions.R -- annotate genomic regions against GENCODE
-#
-# A drop-in alternative to ChIPseeker::annotatePeak() that:
-#   * never returns NA gene symbols  -- gene_name is read straight from the GTF,
-#     so there is no Entrez -> org.Hs.eg.db round trip to fail
-#   * never silently drops genes     -- annotatePeak() calls genes(TxDb) with
-#     single.strand.genes.only=TRUE, which drops 2,135 genes from
-#     TxDb.Hsapiens.UCSC.hg38.knownGene (ACTG1, ABCC1, ABO, ITGAM, NAV1,
-#     TMEM131, ...) because they have exons on hg38 _alt/_fix patch contigs.
-#     It then reports the nearest *surviving* gene while keeping a feature
-#     label from the real one, so the two columns describe different genes.
-#   * reports every overlapping gene -- not just one per region
-#
-# Quick start
-#   source("annotate_regions.R")
-#   anno <- build_annotation()            # downloads + caches GENCODE (once)
-#   res  <- annotate_regions(gr, anno)    # GRanges, .bed path, or data.frame
-#
-# Command line
-#   Rscript annotate_regions.R regions.bed [out.csv]
-#
-# Requires: GenomicRanges, rtracklayer, GenomeInfoDb, data.table
-# =============================================================================
-
-# Bioconductor generics are namespace-qualified throughout: attaching purrr,
-# dplyr or plyranges after these masks reduce()/resize()/flank() and produces
-# errors like "argument '.f' is missing" from deep inside build_annotation().
 suppressPackageStartupMessages({
   library(GenomicRanges); library(rtracklayer)
   library(GenomeInfoDb);  library(data.table)
